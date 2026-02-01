@@ -724,48 +724,49 @@ select option {
     padding-top: 1rem;
     border-top: 1px solid var(--glass-border);
     margin-top: 0.5rem;
+}
 
-    /* Blank Page Insertion Styles */
-    .btn-icon-sm {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid var(--glass-border);
-        color: var(--text-muted);
-        width: 28px;
-        height: 28px;
-        border-radius: 6px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
+/* Blank Page Insertion Styles */
+.btn-icon-sm {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--glass-border);
+    color: var(--text-muted);
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
 
-    .btn-icon-sm:hover {
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
-    }
+.btn-icon-sm:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
 
-    .btn-danger {
-        color: #fca5a5;
-        border-color: rgba(239, 68, 68, 0.3);
-        background: rgba(239, 68, 68, 0.1);
-    }
+.btn-danger {
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.1);
+}
 
-    .btn-danger:hover {
-        background: rgba(239, 68, 68, 0.2);
-        color: #f87171;
-    }
+.btn-danger:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
 
-    .card-actions {
-        opacity: 0.6;
-        transition: opacity 0.2s;
-    }
+.card-actions {
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
 
-    .source-page-item:hover .card-actions {
-        opacity: 1;
-    }
+.source-page-item:hover .card-actions {
+    opacity: 1;
+}
 
-    .page-type-blank {
-        background: rgba(255, 255, 255, 0.02);
-        border-style: dashed;
-    }
+.page-type-blank {
+    background: rgba(255, 255, 255, 0.02);
+    border-style: dashed;
+}

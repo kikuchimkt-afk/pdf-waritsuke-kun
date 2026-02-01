@@ -1,12 +1,15 @@
 const CACHE_NAME = 'pdf-layout-pwa-v1';
-const urlsToCache = [
+const localUrlsToCache = [
     './',
     './index.html',
     './style.css',
     './script.js',
     './manifest.json',
     './icons/icon-192.png',
-    './icons/icon-512.png',
+    './icons/icon-512.png'
+];
+
+const externalUrlsToCache = [
     'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js',
     'https://unpkg.com/lucide@latest',
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap'
@@ -15,9 +18,17 @@ const urlsToCache = [
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(cache => {
+            .then(async cache => {
                 console.log('Opened cache');
-                return cache.addAll(urlsToCache);
+                // Cache local files significantly
+                await cache.addAll(localUrlsToCache);
+
+                // Try caching external, but don't fail install if they fail (e.g. offline/redirect)
+                try {
+                    await cache.addAll(externalUrlsToCache);
+                } catch (err) {
+                    console.warn('Failed to cache external assets:', err);
+                }
             })
     );
 });

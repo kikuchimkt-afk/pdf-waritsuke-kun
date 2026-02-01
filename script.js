@@ -938,6 +938,9 @@ installBtn.addEventListener('click', () => {
             }
             deferredPrompt = null;
         });
+    } else {
+        // Fallback or Debug info
+        alert('インストールの準備ができていないか、このブラウザではサポートされていません。\n(HTTPS接続やシークレットモードでないことを確認してください)');
     }
 });
 
