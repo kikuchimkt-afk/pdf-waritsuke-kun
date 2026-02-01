@@ -1,5 +1,43 @@
 const { PDFDocument, PageSizes } = PDFLib;
 
+// --- Debug Console Logic ---
+const debugOverlay = document.getElementById('debug-overlay');
+const debugContent = document.getElementById('debug-content');
+const toggleDebugBtn = document.getElementById('toggle-debug');
+const closeDebugBtn = document.getElementById('close-debug');
+const clearDebugBtn = document.getElementById('clear-debug');
+
+function logToScreen(msg, type = 'info') {
+    if (!debugContent) return;
+    const div = document.createElement('div');
+    div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    div.style.color = type === 'error' ? '#ff5555' : (type === 'warn' ? '#ffb86c' : '#8be9fd');
+    debugContent.appendChild(div);
+    debugContent.scrollTop = debugContent.scrollHeight;
+    console.warn('[ScreenLog]', msg); // Keep in browser console too
+}
+
+// Override console.log/error to capturing basic flows if needed, 
+// or just use logToScreen explicitly for critical events.
+// Let's use explicit logging for PWA stuff to avoid noise.
+
+if (toggleDebugBtn) {
+    toggleDebugBtn.addEventListener('click', () => {
+        debugOverlay.style.display = 'block';
+    });
+}
+if (closeDebugBtn) {
+    closeDebugBtn.addEventListener('click', () => {
+        debugOverlay.style.display = 'none';
+    });
+}
+if (clearDebugBtn) {
+    clearDebugBtn.addEventListener('click', () => {
+        debugContent.innerHTML = '';
+    });
+}
+// ---------------------------
+
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const statusArea = document.getElementById('status-area');
@@ -911,34 +949,40 @@ function reset() {
 
 // PWA Install Logic
 window.addEventListener('beforeinstallprompt', (e) => {
+    logToScreen('beforeinstallprompt fired!', 'info');
     // Prevent the mini-infobar from appearing on mobile
     e.preventDefault();
     // Stash the event so it can be triggered later.
     deferredPrompt = e;
     // Update UI notify the user they can install the PWA
     installBtn.style.display = 'flex';
+    logToScreen('Install button shown', 'info');
 });
 
 installBtn.addEventListener('click', () => {
+    logToScreen('Install button clicked', 'info');
     // Detect iOS
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
     if (isIOS) {
+        logToScreen('iOS detected, showing modal', 'info');
         iosInstallModal.style.display = 'flex';
     } else if (deferredPrompt) {
+        logToScreen('Prompting user...', 'info');
         // Show the install prompt
         deferredPrompt.prompt();
         // Wait for the user to respond to the prompt
         deferredPrompt.userChoice.then((choiceResult) => {
             if (choiceResult.outcome === 'accepted') {
-                console.log('User accepted the install prompt');
+                logToScreen('User accepted the install prompt', 'info');
                 installBtn.style.display = 'none';
             } else {
-                console.log('User dismissed the install prompt');
+                logToScreen('User dismissed the install prompt', 'warn');
             }
             deferredPrompt = null;
         });
     } else {
+        logToScreen('Deferred prompt is null. Requirements not met?', 'error');
         // Fallback or Debug info
         alert('インストールの準備ができていないか、このブラウザではサポートされていません。\n(HTTPS接続やシークレットモードでないことを確認してください)');
     }
@@ -957,12 +1001,20 @@ iosInstallModal.addEventListener('click', (e) => {
 
 // Check if already installed (standalone mode)
 window.addEventListener('appinstalled', () => {
+    logToScreen('PWA was installed', 'info');
     installBtn.style.display = 'none';
     deferredPrompt = null;
-    console.log('PWA was installed');
 });
 
 // For iOS standalone check
 if (window.navigator.standalone === true) {
     installBtn.style.display = 'none';
+    logToScreen('Running in standalone mode (iOS)', 'info');
+}
+
+// Check Protocol
+if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    logToScreen('WARNING: Not HTTPS. PWA install will fail.', 'error');
+} else {
+    logToScreen('Protocol check OK.', 'info');
 }
