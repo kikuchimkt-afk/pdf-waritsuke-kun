@@ -46,17 +46,48 @@ body {
 
 header {
     text-align: center;
-    margin-bottom: 3rem;
+    margin-bottom: 2rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
 }
 
-h1 {
+.header-content h1 {
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 0.5rem;
-    background: linear-gradient(to right, #818cf8, #c084fc);
-    -webkit-background-clip: text;
+    text-shadow: 0 4px 20px rgba(99, 102, 241, 0.5);
+    background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 100%);
     background-clip: text;
+    -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+}
+
+.btn-install {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-main);
+    border: 1px solid var(--glass-border);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.btn-install:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.btn-install i {
+    width: 16px;
+    height: 16px;
 }
 
 p.subtitle {
@@ -291,6 +322,87 @@ select option {
 .btn-preview:hover {
     transform: translateY(-2px);
     box-shadow: 0 15px 30px -5px rgba(99, 102, 241, 0.5);
+}
+
+/* iOS Install Modal */
+.ios-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    /* Show at bottom */
+    padding-bottom: 2rem;
+}
+
+.ios-modal-content {
+    background: #1e1b4b;
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 1.5rem;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    position: relative;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.ios-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.5rem;
+}
+
+.ios-modal-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-main);
+}
+
+#close-ios-modal {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+}
+
+.ios-instructions p {
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    color: var(--text-muted);
+}
+
+.ios-instructions ol {
+    padding-left: 1.5rem;
+    color: var(--text-main);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.ios-instructions li {
+    margin-bottom: 0.5rem;
 }
 
 .btn-success {

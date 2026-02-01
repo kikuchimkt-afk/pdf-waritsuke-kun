@@ -26,8 +26,13 @@
     <div class="container">
         <div class="glass-card">
             <header>
-                <h1>PDF 割付くん</h1>
-                <p class="subtitle">PDFを自由にレイアウト・割り付けして作成します</p>
+                <div class="header-content">
+                    <h1>PDF 割付くん</h1>
+                    <p class="subtitle">PDFを自由にレイアウト・割り付けして作成します</p>
+                </div>
+                <button id="install-btn" class="btn-install" style="display: none;">
+                    <i data-lucide="download"></i> アプリをインストール
+                </button>
             </header>
 
             <div id="drop-zone" class="drop-zone">
@@ -145,6 +150,24 @@
                     </ul>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="ios-install-modal" class="ios-modal" style="display: none;">
+        <div class="ios-modal-content">
+            <div class="ios-modal-header">
+                <h3>アプリをインストール</h3>
+                <button id="close-ios-modal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="ios-instructions">
+                <p>このアプリをホーム画面に追加して利用します。</p>
+                <ol>
+                    <li>画面下部（または上部）の「共有」ボタン <i data-lucide="share"></i> をタップ</li>
+                    <li>「ホーム画面に追加」 <i data-lucide="plus-square"></i> を選択</li>
+                    <li>右上の「追加」をタップ</li>
+                </ol>
+            </div>
+            <div class="ios-arrow">↓</div>
         </div>
     </div>
 

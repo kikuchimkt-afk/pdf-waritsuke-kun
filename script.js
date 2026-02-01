@@ -23,6 +23,11 @@ const origOrientRadios = document.getElementsByName('orig-orient');
 const outOrientRadios = document.getElementsByName('out-orient');
 const bindingRadios = document.getElementsByName('binding');
 const dynamicTips = document.getElementById('dynamic-tips');
+const installBtn = document.getElementById('install-btn');
+const iosInstallModal = document.getElementById('ios-install-modal');
+const closeIosModalBtn = document.getElementById('close-ios-modal');
+
+let deferredPrompt;
 
 let currentFileArrayBuffer = null;
 let processedPdfBytes = null;
@@ -287,5 +292,59 @@ function reset() {
     }
     fileInput.value = '';
     currentFileArrayBuffer = null;
-    processedPdfBytes = null;
+}
+
+// PWA Install Logic
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later.
+    deferredPrompt = e;
+    // Update UI notify the user they can install the PWA
+    installBtn.style.display = 'flex';
+});
+
+installBtn.addEventListener('click', () => {
+    // Detect iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    if (isIOS) {
+        iosInstallModal.style.display = 'flex';
+    } else if (deferredPrompt) {
+        // Show the install prompt
+        deferredPrompt.prompt();
+        // Wait for the user to respond to the prompt
+        deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+                console.log('User accepted the install prompt');
+                installBtn.style.display = 'none';
+            } else {
+                console.log('User dismissed the install prompt');
+            }
+            deferredPrompt = null;
+        });
+    }
+});
+
+closeIosModalBtn.addEventListener('click', () => {
+    iosInstallModal.style.display = 'none';
+});
+
+// Close modal when clicking outside
+iosInstallModal.addEventListener('click', (e) => {
+    if (e.target === iosInstallModal) {
+        iosInstallModal.style.display = 'none';
+    }
+});
+
+// Check if already installed (standalone mode)
+window.addEventListener('appinstalled', () => {
+    installBtn.style.display = 'none';
+    deferredPrompt = null;
+    console.log('PWA was installed');
+});
+
+// For iOS standalone check
+if (window.navigator.standalone === true) {
+    installBtn.style.display = 'none';
 }
