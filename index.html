@@ -51,58 +51,106 @@
             </div>
 
             <div id="options-panel" class="options-panel">
-                <div class="option-group">
-                    <label>原稿の向き</label>
-                    <div class="radio-group">
-                        <input type="radio" id="orig-v" name="orig-orient" value="portrait" checked>
-                        <label for="orig-v">縦向き</label>
-                        <input type="radio" id="orig-h" name="orig-orient" value="landscape">
-                        <label for="orig-h">横向き</label>
+                <!-- Source Selection (Moved to top) -->
+                <div class="option-group full-width">
+                    <label>元ファイルのページ選択</label>
+                    <div class="source-selection-container">
+                        <div id="source-preview-list" class="source-preview-list">
+                            <!-- Dynamic content -->
+                        </div>
+                        <div class="source-actions">
+                            <span id="source-page-count-display"
+                                style="font-size: 0.8rem; color: var(--text-muted);">全ページ対象</span>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button id="source-select-all" class="btn-sm">全選択</button>
+                                <button id="source-deselect-all" class="btn-sm">全解除</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="option-group">
-                    <label>出力用紙サイズ</label>
-                    <div class="radio-group">
-                        <input type="radio" id="out-h" name="out-orient" value="landscape" checked>
-                        <label for="out-h">A4横</label>
-                        <input type="radio" id="out-v" name="out-orient" value="portrait">
-                        <label for="out-v">A4縦</label>
+                <!-- Toggle Button -->
+                <div class="full-width" style="display: flex; justify-content: center; margin-bottom: 0.5rem;">
+                    <button id="toggle-settings-btn" class="btn-text">
+                        <span>詳細設定を調整する</span>
+                        <i data-lucide="chevron-down" style="width: 16px;"></i>
+                    </button>
+                </div>
+
+                <!-- Detailed Settings (Hidden) -->
+                <div id="detailed-settings" class="settings-content full-width" style="display: none;">
+                    <div class="settings-grid">
+                        <div class="option-group">
+                            <label>原稿の向き</label>
+                            <div class="radio-group">
+                                <input type="radio" id="orig-v" name="orig-orient" value="portrait" checked>
+                                <label for="orig-v">縦向き</label>
+                                <input type="radio" id="orig-h" name="orig-orient" value="landscape">
+                                <label for="orig-h">横向き</label>
+                            </div>
+                        </div>
+
+                        <div class="option-group">
+                            <label>用紙サイズと向き</label>
+                            <div style="display: flex; gap: 1rem; margin-bottom: 0.8rem;">
+                                <div class="select-wrapper" style="flex: 1;">
+                                    <select id="paper-size-select" class="glass-select" style="width: 100%;">
+                                        <option value="a4">A4</option>
+                                        <option value="a3">A3</option>
+                                        <option value="b4">B4 (JIS)</option>
+                                        <option value="b5">B5 (JIS)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="radio-group">
+                                <input type="radio" id="out-landscape" name="out-orient" value="landscape" checked>
+                                <label for="out-landscape">横向き</label>
+                                <input type="radio" id="out-portrait" name="out-orient" value="portrait">
+                                <label for="out-portrait">縦向き</label>
+                            </div>
+                        </div>
+
+                        <div class="option-group">
+                            <label>割り付け</label>
+                            <div class="radio-group">
+                                <input type="radio" id="layout-2" name="layout-mode" value="2" checked>
+                                <label for="layout-2">2面割り付け</label>
+                                <input type="radio" id="layout-4" name="layout-mode" value="4">
+                                <label for="layout-4">4面割り付け</label>
+                            </div>
+                        </div>
+
+                        <div class="option-group" id="direction-group">
+                            <label>並び順</label>
+                            <div class="radio-group">
+                                <input type="radio" id="dir-lr" name="reading-dir" value="lr" checked>
+                                <label for="dir-lr">左→右</label>
+                                <input type="radio" id="dir-rl" name="reading-dir" value="rl">
+                                <label for="dir-rl">右→左</label>
+                            </div>
+                        </div>
+
+                        <div class="option-group">
+                            <label>綴じ方向（両面印刷用）</label>
+                            <div class="radio-group">
+                                <input type="radio" id="bind-short" name="binding" value="short" checked>
+                                <label for="bind-short">短辺とじ</label>
+                                <input type="radio" id="bind-long" name="binding" value="long">
+                                <label for="bind-long">長辺とじ</label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="option-group">
-                    <label>割り付け</label>
-                    <div class="radio-group">
-                        <input type="radio" id="layout-2" name="layout-mode" value="2" checked>
-                        <label for="layout-2">2面割り付け</label>
-                        <input type="radio" id="layout-4" name="layout-mode" value="4">
-                        <label for="layout-4">4面割り付け</label>
-                    </div>
-                </div>
-
-                <div class="option-group" id="direction-group">
-                    <label>並び順</label>
-                    <div class="radio-group">
-                        <input type="radio" id="dir-lr" name="reading-dir" value="lr" checked>
-                        <label for="dir-lr">左→右</label>
-                        <input type="radio" id="dir-rl" name="reading-dir" value="rl">
-                        <label for="dir-rl">右→左</label>
-                    </div>
-                </div>
-
-                <div class="option-group">
-                    <label>綴じ方向（両面印刷用）</label>
-                    <div class="radio-group">
-                        <input type="radio" id="bind-short" name="binding" value="short" checked>
-                        <label for="bind-short">短辺とじ</label>
-                        <input type="radio" id="bind-long" name="binding" value="long">
-                        <label for="bind-long">長辺とじ</label>
-                    </div>
+                <div style="margin-top: 1.5rem; display: flex; justify-content: center;" class="full-width">
+                    <button id="start-process-btn" class="btn btn-primary full-width"
+                        style="width: 100%; padding: 1rem;">
+                        <i data-lucide="file-check" style="width: 20px; margin-right: 8px;"></i> 割り付けを作成する
+                    </button>
                 </div>
             </div>
 
-            <div id="reprocess-ui" class="preview-btn-container" style="display: none;">
+            <div class="reprocess-ui" id="reprocess-ui" style="display: none;">
                 <button id="reprocess-btn" class="btn btn-preview">
                     <i data-lucide="play" style="width: 18px; margin-right: 8px;"></i> プレビューを更新
                 </button>
@@ -112,6 +160,9 @@
                 <div class="file-info">
                     <i data-lucide="file-text"></i>
                     <span id="file-name" class="file-name">filename.pdf</span>
+                    <button id="clear-file-btn" class="btn-text" style="padding: 0.2rem; color: var(--text-muted);">
+                        <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+                    </button>
                 </div>
 
                 <div id="processing-ui">
@@ -133,19 +184,24 @@
                     <button id="back-btn" class="btn btn-primary" style="background: var(--primary-hover);">
                         <i data-lucide="settings-2"></i> 設定を調整する
                     </button>
-                    <button id="reset-btn" class="btn" style="background: rgba(255,255,255,0.1);">
-                        <i data-lucide="rotate-ccw"></i> 最初から
+                    <button id="reset-btn" class="btn"
+                        style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5;">
+                        <i data-lucide="trash-2"></i> ファイルを削除
                     </button>
                 </div>
 
                 <div id="preview-area" class="preview-area" style="display: none;">
                     <div class="preview-header">
-                        <span>プレビュー（1ページ目）</span>
+                        <span>プレビューと印刷ページの選択</span>
                     </div>
                     <!-- Canvas for PDF.js rendering -->
-                    <div id="pdf-container"
-                        style="overflow: auto; max-height: 500px; display: flex; justify-content: center; background: #e2e8f0; padding: 1rem; border-radius: 0 0 12px 12px;">
-                        <canvas id="pdf-preview-canvas"></canvas>
+                    <!-- Changed from single item to a flexible container -->
+                    <div id="preview-list" class="preview-list">
+                        <!-- Dynamic content will be inserted here -->
+                    </div>
+                    <div class="preview-actions">
+                        <button id="select-all-btn" class="btn-sm">全選択</button>
+                        <button id="deselect-all-btn" class="btn-sm">全解除</button>
                     </div>
                 </div>
 
