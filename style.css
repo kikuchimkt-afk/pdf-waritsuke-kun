@@ -167,6 +167,16 @@ p.subtitle {
 .status-area {
     margin-top: 2rem;
     display: none;
+    border: 2px dashed transparent;
+    /* Reserve space for border */
+    border-radius: 12px;
+    padding: 1rem;
+    transition: all 0.2s;
+}
+
+.status-area.drag-over {
+    border-color: var(--primary-color);
+    background: rgba(99, 102, 241, 0.05);
 }
 
 .progress-bar {
