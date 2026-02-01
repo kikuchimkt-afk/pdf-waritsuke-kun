@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF割付くん | A4横2面割り付け作成</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="割付くん">
+</head>
+
+<body>
+    <div class="blob"></div>
+    <div class="blob blob-2" style="top: 20%; right: 10%;"></div>
+
+    <div class="container">
+        <div class="glass-card">
+            <header>
+                <h1>PDF 割付くん</h1>
+                <p class="subtitle">PDFを自由にレイアウト・割り付けして作成します</p>
+            </header>
+
+            <div id="drop-zone" class="drop-zone">
+                <div class="drop-zone-content">
+                    <div class="icon-wrapper">
+                        <i data-lucide="file-up"></i>
+                    </div>
+                    <p>ファイルをドロップ、または選択してください</p>
+                    <button class="browse-btn" onclick="document.getElementById('file-input').click()">ファイルを選択</button>
+                    <input type="file" id="file-input" accept="application/pdf">
+                </div>
+            </div>
+
+            <div id="options-panel" class="options-panel">
+                <div class="option-group">
+                    <label>原稿の向き</label>
+                    <div class="radio-group">
+                        <input type="radio" id="orig-v" name="orig-orient" value="portrait" checked>
+                        <label for="orig-v">縦向き</label>
+                        <input type="radio" id="orig-h" name="orig-orient" value="landscape">
+                        <label for="orig-h">横向き</label>
+                    </div>
+                </div>
+
+                <div class="option-group">
+                    <label>出力用紙サイズ</label>
+                    <div class="radio-group">
+                        <input type="radio" id="out-h" name="out-orient" value="landscape" checked>
+                        <label for="out-h">A4横</label>
+                        <input type="radio" id="out-v" name="out-orient" value="portrait">
+                        <label for="out-v">A4縦</label>
+                    </div>
+                </div>
+
+                <div class="option-group">
+                    <label>割り付け</label>
+                    <div class="radio-group">
+                        <input type="radio" id="layout-2" name="layout-mode" value="2" checked>
+                        <label for="layout-2">2面割り付け</label>
+                        <input type="radio" id="layout-4" name="layout-mode" value="4">
+                        <label for="layout-4">4面割り付け</label>
+                    </div>
+                </div>
+
+                <div class="option-group" id="direction-group">
+                    <label>並び順</label>
+                    <div class="radio-group">
+                        <input type="radio" id="dir-lr" name="reading-dir" value="lr" checked>
+                        <label for="dir-lr">左→右</label>
+                        <input type="radio" id="dir-rl" name="reading-dir" value="rl">
+                        <label for="dir-rl">右→左</label>
+                    </div>
+                </div>
+
+                <div class="option-group">
+                    <label>綴じ方向（両面印刷用）</label>
+                    <div class="radio-group">
+                        <input type="radio" id="bind-short" name="binding" value="short" checked>
+                        <label for="bind-short">短辺とじ</label>
+                        <input type="radio" id="bind-long" name="binding" value="long">
+                        <label for="bind-long">長辺とじ</label>
+                    </div>
+                </div>
+            </div>
+
+            <div id="reprocess-ui" class="preview-btn-container" style="display: none;">
+                <button id="reprocess-btn" class="btn btn-preview">
+                    <i data-lucide="play" style="width: 18px; margin-right: 8px;"></i> プレビューを更新
+                </button>
+            </div>
+
+            <div id="status-area" class="status-area">
+                <div class="file-info">
+                    <i data-lucide="file-text"></i>
+                    <span id="file-name" class="file-name">filename.pdf</span>
+                </div>
+
+                <div id="processing-ui">
+                    <p id="status-text"
+                        style="text-align: center; margin: 1rem 0; font-size: 0.9rem; color: var(--text-muted);">変換中...
+                    </p>
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                </div>
+
+                <div id="result-actions" class="actions" style="display: none;">
+                    <button id="download-btn" class="btn btn-success">
+                        <i data-lucide="download"></i> 変換結果を保存
+                    </button>
+                    <button id="print-btn" class="btn btn-primary">
+                        <i data-lucide="printer"></i> 印刷 / PDF出力
+                    </button>
+                    <button id="back-btn" class="btn btn-primary" style="background: var(--primary-hover);">
+                        <i data-lucide="settings-2"></i> 設定を調整する
+                    </button>
+                    <button id="reset-btn" class="btn" style="background: rgba(255,255,255,0.1);">
+                        <i data-lucide="rotate-ccw"></i> 最初から
+                    </button>
+                </div>
+
+                <div id="preview-area" class="preview-area" style="display: none;">
+                    <div class="preview-header">
+                        <span>プレビュー</span>
+                    </div>
+                    <iframe id="pdf-preview"></iframe>
+                </div>
+
+                <div class="tips">
+                    <h3><i data-lucide="info" style="width: 16px; height: 16px;"></i> 印刷設定のアドバイス</h3>
+                    <ul id="dynamic-tips">
+                        <li>用紙サイズ：設定した出力用紙サイズ（A4横/縦）に合わせてください。</li>
+                        <li>両面印刷：選択した綴じ方向（短辺/長辺）をプリンター設定で選んでください。</li>
+                        <li>拡大縮小：ページサイズに合わせる（100%）を推奨します。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        lucide.createIcons();
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,22 @@
+# System Files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Node modules (if you add build steps later)
+node_modules/
+.npm/
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local Settings
+.env.local
