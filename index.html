@@ -10,6 +10,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f172a">
@@ -136,9 +140,13 @@
 
                 <div id="preview-area" class="preview-area" style="display: none;">
                     <div class="preview-header">
-                        <span>プレビュー</span>
+                        <span>プレビュー（1ページ目）</span>
                     </div>
-                    <iframe id="pdf-preview"></iframe>
+                    <!-- Canvas for PDF.js rendering -->
+                    <div id="pdf-container"
+                        style="overflow: auto; max-height: 500px; display: flex; justify-content: center; background: #e2e8f0; padding: 1rem; border-radius: 0 0 12px 12px;">
+                        <canvas id="pdf-preview-canvas"></canvas>
+                    </div>
                 </div>
 
                 <div class="tips">

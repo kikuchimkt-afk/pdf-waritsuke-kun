@@ -15,7 +15,7 @@ const reprocessBtn = document.getElementById('reprocess-btn');
 const resetBtn = document.getElementById('reset-btn');
 const processingUi = document.getElementById('processing-ui');
 const previewArea = document.getElementById('preview-area');
-const pdfPreview = document.getElementById('pdf-preview');
+const pdfPreviewCanvas = document.getElementById('pdf-preview-canvas'); // Changed from pdfPreview iframe
 const optionsPanel = document.getElementById('options-panel');
 const layoutModeRadios = document.getElementsByName('layout-mode');
 const readingDirRadios = document.getElementsByName('reading-dir');
@@ -182,17 +182,32 @@ async function processPdf(arrayBuffer, options) {
 
     processedPdfBytes = await outPdf.save();
 
-    // Create blob and set preview
-    if (currentPdfUrl) URL.revokeObjectURL(currentPdfUrl);
-    const blob = new Blob([processedPdfBytes], { type: 'application/pdf' });
-    currentPdfUrl = URL.createObjectURL(blob);
-    pdfPreview.src = currentPdfUrl;
+    // Render preview using PDF.js
+    await renderPreview(processedPdfBytes);
 
     setTimeout(() => {
         processingUi.style.display = 'none';
         resultActions.style.display = 'flex';
         previewArea.style.display = 'block';
     }, 500);
+}
+
+async function renderPreview(pdfBytes) {
+    const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1);
+
+    const scale = 1.5;
+    const viewport = page.getViewport({ scale: scale });
+
+    pdfPreviewCanvas.height = viewport.height;
+    pdfPreviewCanvas.width = viewport.width;
+
+    const renderContext = {
+        canvasContext: pdfPreviewCanvas.getContext('2d'),
+        viewport: viewport
+    };
+    await page.render(renderContext).promise;
 }
 
 downloadBtn.addEventListener('click', () => {
@@ -285,7 +300,10 @@ function reset() {
     reprocessUi.style.display = 'none';
     statusArea.style.display = 'none';
     previewArea.style.display = 'none';
-    pdfPreview.src = '';
+    // Clear canvas
+    const ctx = pdfPreviewCanvas.getContext('2d');
+    ctx.clearRect(0, 0, pdfPreviewCanvas.width, pdfPreviewCanvas.height);
+
     if (currentPdfUrl) {
         URL.revokeObjectURL(currentPdfUrl);
         currentPdfUrl = null;
