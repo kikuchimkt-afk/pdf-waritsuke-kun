@@ -546,7 +546,8 @@ async function getSelectedPdfBytes() {
     });
 
     if (selectedIndices.length === checkboxes.length) {
-        return processedPdfBytes;
+        // Return a copy to avoid detachment or modification issues
+        return processedPdfBytes.slice(0);
     }
 
     const pdfDoc = await PDFDocument.load(processedPdfBytes);
@@ -593,25 +594,81 @@ function getRadioValue(radios) {
 
 // Event Handlers for Buttons (to be attached in DOMContentLoaded)
 async function onDownload() {
-    const bytes = await getSelectedPdfBytes();
-    if (!bytes) return;
-    const blob = new Blob([bytes], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `[2面割付]_${currentFileName}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+        const bytes = await getSelectedPdfBytes();
+        if (!bytes) return;
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const fileName = `[2面割付]_${currentFileName || 'download.pdf'}`;
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+
+        // Use a longer timeout before revoking the URL to ensure the browser has time to start the download
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 1000);
+    } catch (err) {
+        console.error('Download error:', err);
+        alert('ダウンロード中にエラーが発生しました。');
+    }
 }
 
 async function onPrint() {
-    const bytes = await getSelectedPdfBytes();
-    if (!bytes) return;
-    const blob = new Blob([bytes], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
+    try {
+        const bytes = await getSelectedPdfBytes();
+        if (!bytes) return;
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+
+        const isMobile = /iPad|iPhone|iPod/.test(navigator.userAgent) || /Android/.test(navigator.userAgent);
+
+        if (isMobile) {
+            // Mobile: window.open is usually the only way to show the PDF
+            // We use a small delay and a placeholder window if the browser is strict, 
+            // but for now let's hope the user gesture is still valid.
+            const newWindow = window.open(url, '_blank');
+            if (!newWindow) {
+                // If blocked, fallback to direct location change (less ideal but works)
+                window.location.href = url;
+            } else {
+                setTimeout(() => URL.revokeObjectURL(url), 30000); // Wait 30s before revoking
+            }
+        } else {
+            // Desktop: Use a hidden iframe for robust printing
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'fixed';
+            iframe.style.top = '-10000px';
+            iframe.src = url;
+            document.body.appendChild(iframe);
+
+            iframe.onload = () => {
+                setTimeout(() => {
+                    try {
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                    } catch (e) {
+                        console.error('Print error:', e);
+                        window.open(url, '_blank');
+                    }
+
+                    // Delay cleanup to allow print dialog to handle the document
+                    setTimeout(() => {
+                        document.body.removeChild(iframe);
+                        URL.revokeObjectURL(url);
+                    }, 2000);
+                }, 500);
+            };
+        }
+    } catch (err) {
+        console.error('Print error:', err);
+        alert('印刷の準備中にエラーが発生しました。');
+    }
 }
 
 function onSelectAll() {
