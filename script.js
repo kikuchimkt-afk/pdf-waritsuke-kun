@@ -552,17 +552,20 @@ async function getSelectedPdfBytes() {
             return null;
         }
 
+        let finalBytes;
         if (selectedIndices.length === checkboxes.length) {
-            // Return a guaranteed deep copy of the bytes
-            return processedPdfBytes.slice(0);
+            // Return a guaranteed deep copy of the bytes to avoid detachment
+            finalBytes = new Uint8Array(processedPdfBytes);
+        } else {
+            const pdfDoc = await PDFDocument.load(processedPdfBytes);
+            const newPdf = await PDFDocument.create();
+            const copiedPages = await newPdf.copyPages(pdfDoc, selectedIndices);
+            copiedPages.forEach(page => newPdf.addPage(page));
+            finalBytes = await newPdf.save();
         }
 
-        const pdfDoc = await PDFDocument.load(processedPdfBytes);
-        const newPdf = await PDFDocument.create();
-        const copiedPages = await newPdf.copyPages(pdfDoc, selectedIndices);
-        copiedPages.forEach(page => newPdf.addPage(page));
-
-        return await newPdf.save();
+        // Return as a fresh Uint8Array to ensure transparency
+        return new Uint8Array(finalBytes);
     } catch (err) {
         console.error('PDF selection error:', err);
         throw new Error('PDFデータの抽出に失敗しました: ' + err.message);
@@ -610,18 +613,15 @@ async function onDownload() {
         if (!bytes) return;
 
         const isMobile = /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
+        const fileName = `[2面割付]_${currentFileName || 'download.pdf'}`;
 
         if (isMobile) {
             const blob = new Blob([bytes], { type: 'application/pdf' });
             const url = URL.createObjectURL(blob);
-            const fileName = `[2面割付]_${currentFileName || 'download.pdf'}`;
-            showCompletionModal(url, fileName, false);
+            showCompletionModal(url, fileName, false, bytes);
         } else {
-            // PC legacy behavior (still robust)
             const blob = new Blob([bytes], { type: 'application/pdf' });
             const url = URL.createObjectURL(blob);
-            const fileName = `[2面割付]_${currentFileName || 'download.pdf'}`;
-
             const a = document.createElement('a');
             a.href = url;
             a.download = fileName;
@@ -631,7 +631,7 @@ async function onDownload() {
 
             setTimeout(() => {
                 document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                setTimeout(() => URL.revokeObjectURL(url), 10000);
             }, 1000);
         }
     } catch (err) {
@@ -646,16 +646,13 @@ async function onPrint() {
         if (!bytes) return;
 
         const isMobile = /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
-
+        const fileName = `[印刷用]_${currentFileName || 'document.pdf'}`;
         const blob = new Blob([bytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
-        const fileName = `[印刷用]_${currentFileName || 'document.pdf'}`;
 
         if (isMobile) {
-            // Mobile: Show modal to require explicit user tap
-            showCompletionModal(url, fileName, true);
+            showCompletionModal(url, fileName, true, bytes);
         } else {
-            // PC: Open new tab immediately
             const a = document.createElement('a');
             a.href = url;
             a.target = '_blank';
@@ -666,11 +663,8 @@ async function onPrint() {
 
             setTimeout(() => {
                 document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
             }, 1000);
-
-            setTimeout(() => {
-                if (url) URL.revokeObjectURL(url);
-            }, 60 * 60 * 1000);
         }
     } catch (err) {
         console.error('Print error:', err);
@@ -678,101 +672,91 @@ async function onPrint() {
     }
 }
 
-// Function to show a dynamic modal for mobile actions
-function showCompletionModal(url, fileName, isPrint) {
-    // Check if modal already exists
+function showCompletionModal(url, fileName, isPrint, bytes) {
     let modal = document.getElementById('completion-modal');
     if (modal) document.body.removeChild(modal);
 
     modal = document.createElement('div');
     modal.id = 'completion-modal';
-    modal.style.position = 'fixed';
-    modal.style.top = '0';
-    modal.style.left = '0';
-    modal.style.width = '100%';
-    modal.style.height = '100%';
-    modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
-    modal.style.display = 'flex';
-    modal.style.alignItems = 'center';
-    modal.style.justifyContent = 'center';
-    modal.style.zIndex = '9999';
-    modal.style.backdropFilter = 'blur(5px)';
+    Object.assign(modal.style, {
+        position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+        backgroundColor: 'rgba(15, 23, 42, 0.95)', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', zIndex: '9999',
+        backdropFilter: 'blur(10px)', padding: '20px'
+    });
 
     const content = document.createElement('div');
-    content.style.background = '#1e293b';
-    content.style.padding = '2rem';
-    content.style.borderRadius = '16px';
-    content.style.textAlign = 'center';
-    content.style.maxWidth = '90%';
-    content.style.width = '320px';
-    content.style.border = '1px solid rgba(255,255,255,0.1)';
-    content.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.5)';
+    content.className = 'glass-card';
+    Object.assign(content.style, {
+        padding: '2rem', textAlign: 'center', maxWidth: '400px', width: '100%',
+        border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(30, 41, 59, 0.7)',
+        borderRadius: '20px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+    });
 
-    const icon = document.createElement('div');
-    icon.innerHTML = isPrint ? '<i data-lucide="printer" style="width:48px;height:48px;color:#60a5fa"></i>' : '<i data-lucide="download" style="width:48px;height:48px;color:#4ade80"></i>';
-    icon.style.marginBottom = '1rem';
+    const titleStr = isPrint ? '印刷プレビュー' : 'PDFの保存';
+    const descStr = isPrint
+        ? '下のボタンからPDFを表示、または共有して印刷してください。'
+        : '下のボタンからPDFを共有または保存してください。';
 
-    const title = document.createElement('h3');
-    title.textContent = isPrint ? '印刷プレビューの準備完了' : '保存の準備完了';
-    title.style.color = 'white';
-    title.style.marginBottom = '0.5rem';
-    title.style.fontSize = '1.2rem';
+    content.innerHTML = `
+        <div style="margin-bottom: 1.5rem;">
+            <i data-lucide="${isPrint ? 'printer' : 'download'}" style="width:48px;height:48px;color:#60a5fa"></i>
+        </div>
+        <h3 style="color:white;margin-bottom:1rem;font-size:1.25rem;">${titleStr}</h3>
+        <p style="color:#94a3b8;margin-bottom:2rem;font-size:0.9rem;line-height:1.6;">${descStr}</p>
+        <div id="modal-actions" style="display:flex;flex-direction:column;gap:1rem;"></div>
+        <button id="modal-close" class="btn-text" style="margin-top:1.5rem;width:100%;color:#94a3b8">閉じる</button>
+    `;
 
-    const desc = document.createElement('p');
-    desc.textContent = isPrint
-        ? '下のボタンをタップしてPDFを表示し、ブラウザの共有メニューから印刷してください。'
-        : '下のボタンをタップしてファイルを保存してください。';
-    desc.style.color = '#94a3b8';
-    desc.style.fontSize = '0.9rem';
-    desc.style.marginBottom = '1.5rem';
-    desc.style.lineHeight = '1.5';
+    const actionsContainer = content.querySelector('#modal-actions');
 
-    const actionBtn = document.createElement('a');
-    actionBtn.href = url;
-    actionBtn.className = isPrint ? 'btn btn-primary' : 'btn btn-success';
-    actionBtn.style.display = 'flex';
-    actionBtn.style.alignItems = 'center';
-    actionBtn.style.justifyContent = 'center';
-    actionBtn.style.width = '100%';
-    actionBtn.style.padding = '1rem';
-    actionBtn.style.textDecoration = 'none';
-    actionBtn.style.marginBottom = '1rem';
-
-    // For ALL Print actions (Android, iOS, PC): Open in new tab
-    if (isPrint) {
-        actionBtn.target = '_blank';
-        actionBtn.textContent = 'PDFプレビューを開く';
-    } else {
-        // Download mode
-        actionBtn.download = fileName;
-        actionBtn.textContent = '保存する';
-        // Android Chrome requires target=_blank sometimes for downloads to trigger properly from blobs
-        if (/Android/.test(navigator.userAgent)) {
-            actionBtn.target = '_blank';
-        }
+    // Share Button (Robust for Mobile)
+    if (navigator.share && bytes) {
+        const shareBtn = document.createElement('button');
+        shareBtn.className = 'btn btn-primary';
+        shareBtn.style.width = '100%';
+        shareBtn.style.padding = '1rem';
+        shareBtn.innerHTML = `<i data-lucide="share-2" style="width:18px;margin-right:8px;vertical-align:middle;"></i> ${isPrint ? '共有から印刷・保存' : '共有・保存'}`;
+        shareBtn.onclick = async () => {
+            try {
+                const file = new File([new Uint8Array(bytes)], fileName, { type: 'application/pdf' });
+                await navigator.share({
+                    files: [file],
+                    title: fileName
+                });
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('Share failed:', err);
+                    window.open(url, '_blank');
+                }
+            }
+        };
+        actionsContainer.appendChild(shareBtn);
     }
 
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '閉じる';
-    closeBtn.className = 'btn-text';
-    closeBtn.style.width = '100%';
-    closeBtn.style.color = '#94a3b8';
-    closeBtn.onclick = () => {
-        document.body.removeChild(modal);
-        // Only revoke if we are sure user is done, but safe to keep for a while
-        // Let's not revoke immediately on close to allow re-opening if needed (logic for that not here though)
-        // But for memory management we should probably eventually revoke. 
-        // We'll rely on the existing 1h timeout logic if we were to move this out, 
-        // but since this is a local modal, let's just revoke after a long delay globally or let reload handle it.
-    };
+    // Direct View Button (Fallback)
+    const viewBtn = document.createElement('a');
+    viewBtn.className = 'btn';
+    viewBtn.style.width = '100%';
+    viewBtn.style.padding = '1rem';
+    viewBtn.style.background = 'rgba(255,255,255,0.05)';
+    viewBtn.style.border = '1px solid rgba(255,255,255,0.1)';
+    viewBtn.style.color = 'white';
+    viewBtn.style.textDecoration = 'none';
+    viewBtn.style.display = 'block';
+    viewBtn.href = url;
+    viewBtn.target = '_blank';
+    viewBtn.innerHTML = `<i data-lucide="external-link" style="width:18px;margin-right:8px;vertical-align:middle;"></i> ブラウザでPDFを開く`;
+    actionsContainer.appendChild(viewBtn);
 
-    content.appendChild(icon);
-    content.appendChild(title);
-    content.appendChild(desc);
-    content.appendChild(actionBtn);
-    content.appendChild(closeBtn);
     modal.appendChild(content);
     document.body.appendChild(modal);
+
+    document.getElementById('modal-close').onclick = () => {
+        document.body.removeChild(modal);
+        // Delay revocation
+        setTimeout(() => URL.revokeObjectURL(url), 300000);
+    };
 
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
