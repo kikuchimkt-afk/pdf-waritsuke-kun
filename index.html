@@ -31,7 +31,9 @@
         <div class="glass-card">
             <header>
                 <div class="header-content">
-                    <h1>PDF 割付くん</h1>
+                    <h1>PDF 割付くん <span
+                            style="font-size: 0.8rem; font-weight: normal; opacity: 0.6; vertical-align: middle;">v1.5.1</span>
+                    </h1>
                     <p class="subtitle">PDFを自由にレイアウト・割り付けして作成します</p>
                 </div>
                 <button id="install-btn" class="btn-install" style="display: none;">
@@ -250,7 +252,7 @@
 
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
+                navigator.serviceWorker.register('./sw.js?v=20260203')
                     .then(registration => {
                         console.log('ServiceWorker registration successful');
 

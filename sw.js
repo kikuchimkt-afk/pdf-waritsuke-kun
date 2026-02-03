@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pdf-layout-pwa-v2';
+const CACHE_NAME = 'pdf-layout-pwa-forced-v20260203';
 const localUrlsToCache = [
     './',
     './index.html',
@@ -32,16 +32,16 @@ self.addEventListener('install', event => {
     );
 });
 
-// Activate: Cleanup old caches
+// Activate: Cleanup ALL old caches aggressively
 self.addEventListener('activate', event => {
     event.waitUntil(
         Promise.all([
-            self.clients.claim(), // Take control of all clients immediately
+            self.clients.claim(),
             caches.keys().then(cacheNames => {
                 return Promise.all(
                     cacheNames.map(cacheName => {
                         if (cacheName !== CACHE_NAME) {
-                            console.log('Deleting old cache:', cacheName);
+                            console.log('Force deleting old cache:', cacheName);
                             return caches.delete(cacheName);
                         }
                     })
