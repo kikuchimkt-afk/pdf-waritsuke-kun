@@ -645,14 +645,19 @@ async function onPrint() {
         const bytes = await getSelectedPdfBytes();
         if (!bytes) return;
 
+        // モバイル（特にAndroid）判定
         const isMobile = /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
-        const fileName = `[印刷用]_${currentFileName || 'document.pdf'}`;
-        const blob = new Blob([bytes], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
 
         if (isMobile) {
-            showCompletionModal(url, fileName, true, bytes);
+            // モバイル向け：PDFを画像(Canvas)として画面に展開し、ブラウザの印刷機能を呼ぶ
+            // これにより、AndroidでPDFがダウンロードされてしまう問題を回避する
+            await printViaDomRendering(bytes);
         } else {
+            // PC向け：Blob URLを開いて印刷ダイアログを表示（画質・機能面で有利）
+            const fileName = `[印刷用]_${currentFileName || 'document.pdf'}`;
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            
             const a = document.createElement('a');
             a.href = url;
             a.target = '_blank';
@@ -666,9 +671,113 @@ async function onPrint() {
                 setTimeout(() => URL.revokeObjectURL(url), 60000);
             }, 1000);
         }
+
     } catch (err) {
         console.error('Print error:', err);
         alert('印刷の準備中にエラーが発生しました。\n詳細: ' + err.message);
+    }
+}
+
+// DOMにCanvasを展開して印刷する関数（Android対応）
+async function printViaDomRendering(pdfBytes) {
+    statusText.textContent = '印刷用データを準備中...';
+    processingUi.style.display = 'block';
+    
+    // スクロール位置を一番上へ
+    window.scrollTo(0, 0);
+
+    try {
+        // 印刷用コンテナを作成（既存のUIを隠すため）
+        const printContainer = document.createElement('div');
+        printContainer.id = 'print-container';
+        // スタイル設定（CSSの@media printでも制御されるが念のため）
+        Object.assign(printContainer.style, {
+            position: 'absolute',
+            top: '0',
+            left: '0',
+            width: '100%',
+            zIndex: '10000',
+            background: 'white',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+        });
+
+        // PDFを読み込み
+        const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
+        const pdf = await loadingTask.promise;
+        
+        // 全ページをCanvas化してコンテナに追加
+        for (let i = 1; i <= pdf.numPages; i++) {
+            statusText.textContent = `印刷データ生成中 (${i}/${pdf.numPages})...`;
+            
+            const page = await pdf.getPage(i);
+            // 印刷品質のためにスケールを確保 (2.0 = 高画質)
+            const scale = 2.0;
+            const viewport = page.getViewport({ scale: scale });
+
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            // スタイルで画面幅に合わせる（実際の印刷解像度はcanvas属性に依存）
+            canvas.style.width = '100%';
+            canvas.style.height = 'auto';
+            canvas.style.marginBottom = '0'; // 余白はCSSで制御推奨だが、ここでは詰める
+            
+            // レンダリング
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+            printContainer.appendChild(canvas);
+        }
+
+        // メインコンテンツを隠して印刷用コンテナを追加
+        const mainContainer = document.querySelector('.container');
+        const header = document.querySelector('header');
+        const blob1 = document.querySelector('.blob');
+        const blob2 = document.querySelector('.blob-2');
+        
+        // 元の表示状態を保存（簡易的）
+        if (mainContainer) mainContainer.style.display = 'none';
+        if (header) header.style.display = 'none';
+        if (blob1) blob1.style.display = 'none';
+        if (blob2) blob2.style.display = 'none';
+        
+        document.body.appendChild(printContainer);
+        const originalBg = document.body.style.background;
+        document.body.style.background = 'white';
+
+        // 印刷実行
+        statusText.textContent = '印刷画面を開きます...';
+        
+        setTimeout(() => {
+            window.print();
+
+            // 印刷ダイアログ後の後始末
+            // モバイルでは非同期にならない場合があるため、タイムアウトまたはフォーカス戻りで処理
+            const cleanup = () => {
+                if (document.body.contains(printContainer)) {
+                    document.body.removeChild(printContainer);
+                    if (mainContainer) mainContainer.style.display = '';
+                    if (header) header.style.display = '';
+                    if (blob1) blob1.style.display = '';
+                    if (blob2) blob2.style.display = '';
+                    document.body.style.background = originalBg;
+                    processingUi.style.display = 'none';
+                }
+            };
+
+            // 即時実行せず、ユーザーが戻ってきた頃合いを見計らう
+            setTimeout(cleanup, 2000); 
+            // 念のためフォーカスが戻ったときにも実行
+            window.addEventListener('focus', cleanup, { once: true });
+            
+        }, 500);
+
+    } catch (e) {
+        console.error(e);
+        alert('印刷データの生成に失敗しました。');
+        processingUi.style.display = 'none';
     }
 }
 

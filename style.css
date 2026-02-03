@@ -780,3 +780,26 @@ select option {
     background: rgba(255, 255, 255, 0.02);
     border-style: dashed;
 }
+@media print {
+    /* 印刷時は印刷用コンテナ以外を完全に消す */
+    .container, .blob, header {
+        display: none !important;
+    }
+    #print-container {
+        display: block !important;
+        position: static !important;
+    }
+    #print-container canvas {
+        width: 100% !important;
+        height: auto !important;
+        /* 改ページ設定: 各キャンバス（ページ）の後に改ページを入れる */
+        page-break-after: always;
+    }
+    #print-container canvas:last-child {
+        page-break-after: auto;
+    }
+    body {
+        background: white !important;
+        color: black !important;
+    }
+}
