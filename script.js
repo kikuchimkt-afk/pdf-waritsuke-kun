@@ -347,7 +347,8 @@ async function processPdf(unusedBufferIsGone, options) {
     progressFill.style.width = '100%';
 
     processedPdfBytes = await outPdf.save();
-    await renderPreview(processedPdfBytes);
+    // Pass a copy to avoid detachment by PDF.js worker
+    await renderPreview(processedPdfBytes.slice(0));
 
     setTimeout(() => {
         processingUi.style.display = 'none';
@@ -538,24 +539,34 @@ function updateSelectionState(item, checkbox) {
 }
 
 async function getSelectedPdfBytes() {
-    if (!processedPdfBytes) return null;
-    const checkboxes = previewList.querySelectorAll('.page-checkbox');
-    const selectedIndices = [];
-    checkboxes.forEach((cb, idx) => {
-        if (cb.checked) selectedIndices.push(idx);
-    });
+    try {
+        if (!processedPdfBytes) return null;
+        const checkboxes = previewList.querySelectorAll('.page-checkbox');
+        const selectedIndices = [];
+        checkboxes.forEach((cb, idx) => {
+            if (cb.checked) selectedIndices.push(idx);
+        });
 
-    if (selectedIndices.length === checkboxes.length) {
-        // Return a copy to avoid detachment or modification issues
-        return processedPdfBytes.slice(0);
+        if (selectedIndices.length === 0) {
+            alert('印刷するページを選択してください。');
+            return null;
+        }
+
+        if (selectedIndices.length === checkboxes.length) {
+            // Return a safe copy
+            return new Uint8Array(processedPdfBytes);
+        }
+
+        const pdfDoc = await PDFDocument.load(processedPdfBytes);
+        const newPdf = await PDFDocument.create();
+        const copiedPages = await newPdf.copyPages(pdfDoc, selectedIndices);
+        copiedPages.forEach(page => newPdf.addPage(page));
+
+        return await newPdf.save();
+    } catch (err) {
+        console.error('PDF selection error:', err);
+        throw new Error('PDFデータの抽出に失敗しました: ' + err.message);
     }
-
-    const pdfDoc = await PDFDocument.load(processedPdfBytes);
-    const newPdf = await PDFDocument.create();
-    const copiedPages = await newPdf.copyPages(pdfDoc, selectedIndices);
-    copiedPages.forEach(page => newPdf.addPage(page));
-
-    return await newPdf.save();
 }
 
 function updateTips(paperSize, outOrient, binding) {
@@ -620,54 +631,32 @@ async function onDownload() {
 }
 
 async function onPrint() {
+    let url = null;
     try {
         const bytes = await getSelectedPdfBytes();
         if (!bytes) return;
+
         const blob = new Blob([bytes], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
+        url = URL.createObjectURL(blob);
 
-        const isMobile = /iPad|iPhone|iPod/.test(navigator.userAgent) || /Android/.test(navigator.userAgent);
+        // Open in a new tab for all platforms. 
+        // Window.open is generally more compatible for PDF viewing than iframe on local file systems.
+        const newWindow = window.open(url, '_blank');
 
-        if (isMobile) {
-            // Mobile: window.open is usually the only way to show the PDF
-            // We use a small delay and a placeholder window if the browser is strict, 
-            // but for now let's hope the user gesture is still valid.
-            const newWindow = window.open(url, '_blank');
-            if (!newWindow) {
-                // If blocked, fallback to direct location change (less ideal but works)
-                window.location.href = url;
-            } else {
-                setTimeout(() => URL.revokeObjectURL(url), 30000); // Wait 30s before revoking
-            }
+        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+            // If popup is blocked, fallback to direct navigation (the user can then use the back button)
+            window.location.href = url;
         } else {
-            // Desktop: Use a hidden iframe for robust printing
-            const iframe = document.createElement('iframe');
-            iframe.style.position = 'fixed';
-            iframe.style.top = '-10000px';
-            iframe.src = url;
-            document.body.appendChild(iframe);
-
-            iframe.onload = () => {
-                setTimeout(() => {
-                    try {
-                        iframe.contentWindow.focus();
-                        iframe.contentWindow.print();
-                    } catch (e) {
-                        console.error('Print error:', e);
-                        window.open(url, '_blank');
-                    }
-
-                    // Delay cleanup to allow print dialog to handle the document
-                    setTimeout(() => {
-                        document.body.removeChild(iframe);
-                        URL.revokeObjectURL(url);
-                    }, 2000);
-                }, 500);
-            };
+            // On successful open, we keep the URL alive for a long time to ensure the PDF loads.
+            // Revoke after 1 hour (plenty of time for print/save)
+            setTimeout(() => {
+                if (url) URL.revokeObjectURL(url);
+            }, 60 * 60 * 1000);
         }
     } catch (err) {
         console.error('Print error:', err);
-        alert('印刷の準備中にエラーが発生しました。');
+        alert('印刷の準備中にエラーが発生しました。\n詳細: ' + err.message);
+        if (url) URL.revokeObjectURL(url);
     }
 }
 
