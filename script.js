@@ -219,7 +219,7 @@ async function handleFile(file, isAppend = false) {
             id: fileId,
             name: file.name,
             arrayBuffer: arrayBuffer,
-            pdfDoc: pdfDoc // プレビュー表示用。割り付け生成時にはArrayBufferから再生成する
+            pdfDoc: pdfDoc // プレビュー表示用
         });
 
         const pageCount = pdfDoc.getPageCount();
@@ -257,8 +257,7 @@ async function processPdf(unusedBufferIsGone, options) {
         return;
     }
 
-    // 【修正箇所】処理の安定化のため、ArrayBufferからPDFドキュメントを再ロードしてマップ化する
-    // これにより、再処理時の「埋め込み元ドキュメントの汚れ/競合」による白紙化を防ぐ
+    // 処理の安定化のため、ArrayBufferからPDFドキュメントを再ロードしてマップ化する
     const pdfDocMap = new Map();
 
     const activePageCount = activePages.length;
@@ -692,10 +691,14 @@ async function onPrint() {
     }
 }
 
-// DOMにCanvasを展開して印刷する関数（Android対応）
+// DOMにCanvasを展開して印刷する関数（Android対応・用紙設定強制版）
 async function printViaDomRendering(pdfBytes) {
     statusText.textContent = '印刷用データを準備中...';
     processingUi.style.display = 'block';
+    
+    // 現在の設定を取得（用紙サイズ・向き）
+    const outOrient = getRadioValue(outOrientRadios) || 'landscape'; // default landscape
+    const paperSize = paperSizeSelect ? paperSizeSelect.value : 'a4';
     
     // スクロール位置を一番上へ
     window.scrollTo(0, 0);
@@ -716,6 +719,36 @@ async function printViaDomRendering(pdfBytes) {
             flexDirection: 'column',
             alignItems: 'center'
         });
+        
+        // 【重要】ブラウザの印刷設定を強制するためのCSSを動的に注入
+        const printStyleId = 'dynamic-print-style';
+        let printStyle = document.getElementById(printStyleId);
+        if (printStyle) document.head.removeChild(printStyle);
+        
+        printStyle = document.createElement('style');
+        printStyle.id = printStyleId;
+        // @page ルールでサイズと向きを指定し、余白を0にする（コンテンツ落ち防止）
+        printStyle.innerHTML = `
+            @media print {
+                @page {
+                    size: ${paperSize} ${outOrient};
+                    margin: 0;
+                }
+                body {
+                    margin: 0;
+                }
+                #print-container canvas {
+                    width: 100% !important;
+                    height: auto !important;
+                    max-height: 100vh;
+                    page-break-after: always;
+                }
+                #print-container canvas:last-child {
+                    page-break-after: auto;
+                }
+            }
+        `;
+        document.head.appendChild(printStyle);
 
         // PDFを読み込み
         const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
@@ -735,10 +768,10 @@ async function printViaDomRendering(pdfBytes) {
             canvas.height = viewport.height;
             canvas.width = viewport.width;
 
-            // スタイルで画面幅に合わせる（実際の印刷解像度はcanvas属性に依存）
+            // スタイルで画面幅に合わせる
             canvas.style.width = '100%';
             canvas.style.height = 'auto';
-            canvas.style.marginBottom = '0'; // 余白はCSSで制御推奨だが、ここでは詰める
+            canvas.style.marginBottom = '0';
             
             // レンダリング
             await page.render({ canvasContext: context, viewport: viewport }).promise;
@@ -768,7 +801,6 @@ async function printViaDomRendering(pdfBytes) {
             window.print();
 
             // 印刷ダイアログ後の後始末
-            // モバイルでは非同期にならない場合があるため、タイムアウトまたはフォーカス戻りで処理
             const cleanup = () => {
                 if (document.body.contains(printContainer)) {
                     document.body.removeChild(printContainer);
@@ -778,12 +810,16 @@ async function printViaDomRendering(pdfBytes) {
                     if (blob2) blob2.style.display = '';
                     document.body.style.background = originalBg;
                     processingUi.style.display = 'none';
+                    
+                    // 注入したCSSを削除
+                    if (document.head.contains(printStyle)) {
+                        document.head.removeChild(printStyle);
+                    }
                 }
             };
 
             // 即時実行せず、ユーザーが戻ってきた頃合いを見計らう
             setTimeout(cleanup, 2000); 
-            // 念のためフォーカスが戻ったときにも実行
             window.addEventListener('focus', cleanup, { once: true });
             
         }, 500);
