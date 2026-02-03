@@ -553,8 +553,8 @@ async function getSelectedPdfBytes() {
         }
 
         if (selectedIndices.length === checkboxes.length) {
-            // Return a safe copy
-            return new Uint8Array(processedPdfBytes);
+            // Return a guaranteed deep copy of the bytes
+            return processedPdfBytes.slice(0);
         }
 
         const pdfDoc = await PDFDocument.load(processedPdfBytes);
@@ -639,16 +639,38 @@ async function onPrint() {
         const blob = new Blob([bytes], { type: 'application/pdf' });
         url = URL.createObjectURL(blob);
 
-        // Open in a new tab for all platforms. 
-        // Window.open is generally more compatible for PDF viewing than iframe on local file systems.
-        const newWindow = window.open(url, '_blank');
+        const isAndroid = /Android/.test(navigator.userAgent);
 
-        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-            // If popup is blocked, fallback to direct navigation (the user can then use the back button)
-            window.location.href = url;
+        if (isAndroid) {
+            // Android Chrome workaround: Cannot open blob URLs reliably in new tabs
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `[印刷用]_${currentFileName || 'document.pdf'}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            alert('Androidの制限により、PDFを直接表示できないためダウンロードしました。\n通知バー（または保存先）からファイルを開いて印刷してください。');
+
+            setTimeout(() => {
+                if (url) URL.revokeObjectURL(url);
+            }, 60000);
         } else {
-            // On successful open, we keep the URL alive for a long time to ensure the PDF loads.
-            // Revoke after 1 hour (plenty of time for print/save)
+            // PC / iOS behavior: Using a link with target="_blank" is often more robust 
+            // than window.open for blob URLs in some browser/security configurations.
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+
+            setTimeout(() => {
+                document.body.removeChild(a);
+            }, 1000);
+
+            // Keep the URL alive for an hour
             setTimeout(() => {
                 if (url) URL.revokeObjectURL(url);
             }, 60 * 60 * 1000);
