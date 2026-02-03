@@ -219,7 +219,7 @@ async function handleFile(file, isAppend = false) {
             id: fileId,
             name: file.name,
             arrayBuffer: arrayBuffer,
-            pdfDoc: pdfDoc
+            pdfDoc: pdfDoc // プレビュー表示用。割り付け生成時にはArrayBufferから再生成する
         });
 
         const pageCount = pdfDoc.getPageCount();
@@ -256,6 +256,10 @@ async function processPdf(unusedBufferIsGone, options) {
         reset();
         return;
     }
+
+    // 【修正箇所】処理の安定化のため、ArrayBufferからPDFドキュメントを再ロードしてマップ化する
+    // これにより、再処理時の「埋め込み元ドキュメントの汚れ/競合」による白紙化を防ぐ
+    const pdfDocMap = new Map();
 
     const activePageCount = activePages.length;
 
@@ -298,9 +302,19 @@ async function processPdf(unusedBufferIsGone, options) {
                 const pageData = activePages[targetIndex];
 
                 if (pageData.type === 'original') {
-                    const fileObj = loadedFiles.find(f => f.id === pageData.fileId);
-                    if (fileObj) {
-                        const [embeddedPage] = await outPdf.embedPages([fileObj.pdfDoc.getPage(pageData.pageIndex)]);
+                    // Cache check and Load fresh PDF Document
+                    if (!pdfDocMap.has(pageData.fileId)) {
+                        const fileObj = loadedFiles.find(f => f.id === pageData.fileId);
+                        if (fileObj) {
+                            const freshPdfDoc = await PDFDocument.load(fileObj.arrayBuffer);
+                            pdfDocMap.set(pageData.fileId, freshPdfDoc);
+                        }
+                    }
+
+                    const sourcePdfDoc = pdfDocMap.get(pageData.fileId);
+
+                    if (sourcePdfDoc) {
+                        const [embeddedPage] = await outPdf.embedPages([sourcePdfDoc.getPage(pageData.pageIndex)]);
                         const { width: origW, height: origH } = embeddedPage.size();
 
                         const targetW = width / cols;
