@@ -219,7 +219,7 @@ async function handleFile(file, isAppend = false) {
             id: fileId,
             name: file.name,
             arrayBuffer: arrayBuffer,
-            pdfDoc: pdfDoc // プレビュー表示用
+            pdfDoc: pdfDoc
         });
 
         const pageCount = pdfDoc.getPageCount();
@@ -256,9 +256,6 @@ async function processPdf(unusedBufferIsGone, options) {
         reset();
         return;
     }
-
-    // 処理の安定化のため、ArrayBufferからPDFドキュメントを再ロードしてマップ化する
-    const pdfDocMap = new Map();
 
     const activePageCount = activePages.length;
 
@@ -301,19 +298,9 @@ async function processPdf(unusedBufferIsGone, options) {
                 const pageData = activePages[targetIndex];
 
                 if (pageData.type === 'original') {
-                    // Cache check and Load fresh PDF Document
-                    if (!pdfDocMap.has(pageData.fileId)) {
-                        const fileObj = loadedFiles.find(f => f.id === pageData.fileId);
-                        if (fileObj) {
-                            const freshPdfDoc = await PDFDocument.load(fileObj.arrayBuffer);
-                            pdfDocMap.set(pageData.fileId, freshPdfDoc);
-                        }
-                    }
-
-                    const sourcePdfDoc = pdfDocMap.get(pageData.fileId);
-
-                    if (sourcePdfDoc) {
-                        const [embeddedPage] = await outPdf.embedPages([sourcePdfDoc.getPage(pageData.pageIndex)]);
+                    const fileObj = loadedFiles.find(f => f.id === pageData.fileId);
+                    if (fileObj) {
+                        const [embeddedPage] = await outPdf.embedPages([fileObj.pdfDoc.getPage(pageData.pageIndex)]);
                         const { width: origW, height: origH } = embeddedPage.size();
 
                         const targetW = width / cols;
@@ -658,34 +645,14 @@ async function onPrint() {
         const bytes = await getSelectedPdfBytes();
         if (!bytes) return;
 
-        // Android判定（iOSは別処理の可能性があるため分離）
-        const isAndroid = /Android/.test(navigator.userAgent);
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const isMobile = isAndroid || isIOS;
+        const isMobile = /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
+        const fileName = `[印刷用]_${currentFileName || 'document.pdf'}`;
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
 
-        if (isAndroid) {
-            // Android向け：window.print() がブラウザ制限で動作しないため
-            // navigator.share() を使ってプリンターアプリなどに共有させる
-            const fileName = `[印刷用]_${currentFileName || 'document.pdf'}`;
-            const blob = new Blob([bytes], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-
-            // 共有モーダルを表示（share APIが主要な方法）
-            showPrintModal(url, fileName, bytes);
-
-        } else if (isIOS) {
-            // iOS向け：共有シートを利用
-            const fileName = `[印刷用]_${currentFileName || 'document.pdf'}`;
-            const blob = new Blob([bytes], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-            showPrintModal(url, fileName, bytes);
-
+        if (isMobile) {
+            showCompletionModal(url, fileName, true, bytes);
         } else {
-            // PC向け：Blob URLを開いて印刷ダイアログを表示（画質・機能面で有利）
-            const fileName = `[印刷用]_${currentFileName || 'document.pdf'}`;
-            const blob = new Blob([bytes], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-
             const a = document.createElement('a');
             a.href = url;
             a.target = '_blank';
@@ -699,283 +666,9 @@ async function onPrint() {
                 setTimeout(() => URL.revokeObjectURL(url), 60000);
             }, 1000);
         }
-
     } catch (err) {
         console.error('Print error:', err);
         alert('印刷の準備中にエラーが発生しました。\n詳細: ' + err.message);
-    }
-}
-
-// モバイル向け印刷モーダル（share APIをメインに使用）
-function showPrintModal(url, fileName, bytes) {
-    let modal = document.getElementById('print-modal');
-    if (modal) document.body.removeChild(modal);
-
-    // プラットフォーム判定
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const platformMessage = isIOS
-        ? 'iOSでは「共有」からプリンターを選択<br>して印刷してください。'
-        : 'Androidブラウザでは直接印刷できないため、<br><strong style="color:#fbbf24;">「共有」からプリンターアプリを選択</strong><br>して印刷してください。';
-    const shareButtonText = isIOS ? '共有して印刷' : '共有してプリンターへ送る';
-
-    modal = document.createElement('div');
-    modal.id = 'print-modal';
-    Object.assign(modal.style, {
-        position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
-        backgroundColor: 'rgba(15, 23, 42, 0.95)', display: 'flex',
-        alignItems: 'center', justifyContent: 'center', zIndex: '9999',
-        backdropFilter: 'blur(10px)', padding: '20px'
-    });
-
-    const content = document.createElement('div');
-    content.className = 'glass-card';
-    Object.assign(content.style, {
-        padding: '2rem', textAlign: 'center', maxWidth: '400px', width: '100%',
-        border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(30, 41, 59, 0.7)',
-        borderRadius: '20px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-    });
-
-    content.innerHTML = `
-        <div style="margin-bottom: 1.5rem;">
-            <i data-lucide="printer" style="width:48px;height:48px;color:#60a5fa"></i>
-        </div>
-        <h3 style="color:white;margin-bottom:1rem;font-size:1.25rem;">印刷する方法</h3>
-        <p style="color:#94a3b8;margin-bottom:2rem;font-size:0.9rem;line-height:1.6;">
-            ${platformMessage}
-        </p>
-        <div id="print-modal-actions" style="display:flex;flex-direction:column;gap:1rem;"></div>
-        <button id="print-modal-close" class="btn-text" style="margin-top:1.5rem;width:100%;color:#94a3b8">閉じる</button>
-    `;
-
-    const actionsContainer = content.querySelector('#print-modal-actions');
-
-    // Web Share API を使用（ファイル共有対応）
-    if (navigator.share && navigator.canShare) {
-        const testFile = new File([new Uint8Array(bytes)], fileName, { type: 'application/pdf' });
-        if (navigator.canShare({ files: [testFile] })) {
-            const shareBtn = document.createElement('button');
-            shareBtn.className = 'btn btn-primary';
-            shareBtn.style.width = '100%';
-            shareBtn.style.padding = '1rem';
-            shareBtn.style.fontSize = '1rem';
-            shareBtn.innerHTML = `<i data-lucide="share-2" style="width:20px;margin-right:10px;vertical-align:middle;"></i> ${shareButtonText}`;
-            shareBtn.onclick = async () => {
-                try {
-                    const file = new File([new Uint8Array(bytes)], fileName, { type: 'application/pdf' });
-                    await navigator.share({
-                        files: [file],
-                        title: '印刷用PDF',
-                        text: 'プリンターアプリを選択して印刷してください'
-                    });
-                    // 共有成功したらモーダルを閉じる
-                    if (document.body.contains(modal)) {
-                        document.body.removeChild(modal);
-                    }
-                } catch (err) {
-                    if (err.name !== 'AbortError') {
-                        console.error('Share failed:', err);
-                        alert('共有に失敗しました。「PDFをダウンロード」からファイルを保存して、ファイルアプリから印刷してください。');
-                    }
-                }
-            };
-            actionsContainer.appendChild(shareBtn);
-        }
-    }
-
-    // ダウンロードボタン（フォールバック）
-    const downloadBtn = document.createElement('a');
-    downloadBtn.className = 'btn';
-    downloadBtn.style.width = '100%';
-    downloadBtn.style.padding = '1rem';
-    downloadBtn.style.background = 'rgba(34, 197, 94, 0.2)';
-    downloadBtn.style.border = '1px solid rgba(34, 197, 94, 0.3)';
-    downloadBtn.style.color = '#86efac';
-    downloadBtn.style.textDecoration = 'none';
-    downloadBtn.style.display = 'block';
-    downloadBtn.href = url;
-    downloadBtn.download = fileName;
-    downloadBtn.innerHTML = `<i data-lucide="download" style="width:18px;margin-right:8px;vertical-align:middle;"></i> PDFをダウンロード`;
-    downloadBtn.onclick = () => {
-        setTimeout(() => {
-            if (document.body.contains(modal)) {
-                document.body.removeChild(modal);
-            }
-        }, 500);
-    };
-    actionsContainer.appendChild(downloadBtn);
-
-    // ブラウザで開くボタン
-    const viewBtn = document.createElement('a');
-    viewBtn.className = 'btn';
-    viewBtn.style.width = '100%';
-    viewBtn.style.padding = '1rem';
-    viewBtn.style.background = 'rgba(255,255,255,0.05)';
-    viewBtn.style.border = '1px solid rgba(255,255,255,0.1)';
-    viewBtn.style.color = 'white';
-    viewBtn.style.textDecoration = 'none';
-    viewBtn.style.display = 'block';
-    viewBtn.href = url;
-    viewBtn.target = '_blank';
-    viewBtn.innerHTML = `<i data-lucide="external-link" style="width:18px;margin-right:8px;vertical-align:middle;"></i> ブラウザでPDFを開く`;
-    actionsContainer.appendChild(viewBtn);
-
-    modal.appendChild(content);
-    document.body.appendChild(modal);
-
-    // 閉じるボタン
-    document.getElementById('print-modal-close').onclick = () => {
-        document.body.removeChild(modal);
-        setTimeout(() => URL.revokeObjectURL(url), 300000);
-    };
-
-    // 背景クリックで閉じる
-    modal.onclick = (e) => {
-        if (e.target === modal) {
-            document.body.removeChild(modal);
-            setTimeout(() => URL.revokeObjectURL(url), 300000);
-        }
-    };
-
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-}
-
-// DOMにCanvasを展開して印刷する関数（Android対応・用紙設定強制版）
-async function printViaDomRendering(pdfBytes) {
-    statusText.textContent = '印刷用データを準備中...';
-    processingUi.style.display = 'block';
-
-    // 現在の設定を取得（用紙サイズ・向き）
-    const outOrient = getRadioValue(outOrientRadios) || 'landscape'; // default landscape
-    const paperSize = paperSizeSelect ? paperSizeSelect.value : 'a4';
-
-    // スクロール位置を一番上へ
-    window.scrollTo(0, 0);
-
-    try {
-        // 印刷用コンテナを作成（既存のUIを隠すため）
-        const printContainer = document.createElement('div');
-        printContainer.id = 'print-container';
-        // スタイル設定（CSSの@media printでも制御されるが念のため）
-        Object.assign(printContainer.style, {
-            position: 'absolute',
-            top: '0',
-            left: '0',
-            width: '100%',
-            zIndex: '10000',
-            background: 'white',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center'
-        });
-
-        // 【重要】ブラウザの印刷設定を強制するためのCSSを動的に注入
-        const printStyleId = 'dynamic-print-style';
-        let printStyle = document.getElementById(printStyleId);
-        if (printStyle) document.head.removeChild(printStyle);
-
-        printStyle = document.createElement('style');
-        printStyle.id = printStyleId;
-        // @page ルールでサイズと向きを指定し、余白を0にする（コンテンツ落ち防止）
-        printStyle.innerHTML = `
-            @media print {
-                @page {
-                    size: ${paperSize} ${outOrient};
-                    margin: 0;
-                }
-                body {
-                    margin: 0;
-                }
-                #print-container canvas {
-                    width: 100% !important;
-                    height: auto !important;
-                    max-height: 100vh;
-                    page-break-after: always;
-                }
-                #print-container canvas:last-child {
-                    page-break-after: auto;
-                }
-            }
-        `;
-        document.head.appendChild(printStyle);
-
-        // PDFを読み込み
-        const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
-        const pdf = await loadingTask.promise;
-
-        // 全ページをCanvas化してコンテナに追加
-        for (let i = 1; i <= pdf.numPages; i++) {
-            statusText.textContent = `印刷データ生成中 (${i}/${pdf.numPages})...`;
-
-            const page = await pdf.getPage(i);
-            // 印刷品質のためにスケールを確保 (2.0 = 高画質)
-            const scale = 2.0;
-            const viewport = page.getViewport({ scale: scale });
-
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-
-            // スタイルで画面幅に合わせる
-            canvas.style.width = '100%';
-            canvas.style.height = 'auto';
-            canvas.style.marginBottom = '0';
-
-            // レンダリング
-            await page.render({ canvasContext: context, viewport: viewport }).promise;
-            printContainer.appendChild(canvas);
-        }
-
-        // メインコンテンツを隠して印刷用コンテナを追加
-        const mainContainer = document.querySelector('.container');
-        const header = document.querySelector('header');
-        const blob1 = document.querySelector('.blob');
-        const blob2 = document.querySelector('.blob-2');
-
-        // 元の表示状態を保存（簡易的）
-        if (mainContainer) mainContainer.style.display = 'none';
-        if (header) header.style.display = 'none';
-        if (blob1) blob1.style.display = 'none';
-        if (blob2) blob2.style.display = 'none';
-
-        document.body.appendChild(printContainer);
-        const originalBg = document.body.style.background;
-        document.body.style.background = 'white';
-
-        // 印刷実行
-        statusText.textContent = '印刷画面を開きます...';
-
-        setTimeout(() => {
-            window.print();
-
-            // 印刷ダイアログ後の後始末
-            const cleanup = () => {
-                if (document.body.contains(printContainer)) {
-                    document.body.removeChild(printContainer);
-                    if (mainContainer) mainContainer.style.display = '';
-                    if (header) header.style.display = '';
-                    if (blob1) blob1.style.display = '';
-                    if (blob2) blob2.style.display = '';
-                    document.body.style.background = originalBg;
-                    processingUi.style.display = 'none';
-
-                    // 注入したCSSを削除
-                    if (document.head.contains(printStyle)) {
-                        document.head.removeChild(printStyle);
-                    }
-                }
-            };
-
-            // 即時実行せず、ユーザーが戻ってきた頃合いを見計らう
-            setTimeout(cleanup, 2000);
-            window.addEventListener('focus', cleanup, { once: true });
-
-        }, 500);
-
-    } catch (e) {
-        console.error(e);
-        alert('印刷データの生成に失敗しました。');
-        processingUi.style.display = 'none';
     }
 }
 

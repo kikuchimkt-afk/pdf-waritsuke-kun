@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pdf-layout-pwa-forced-v20260203';
+const CACHE_NAME = 'pdf-layout-pwa-v20260205';
 const localUrlsToCache = [
     './',
     './index.html',
